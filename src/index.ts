@@ -1,16 +1,38 @@
-import express from "express";
+import "dotenv/config";
+import express from "express"
+import mongoose from "mongoose"
+import cors from 'cors'
+import * as authController from "./controllers/auth"
+import * as postsController from './controllers/posts'
+import * as commentController from './controllers/comments'
+import validateToken from "./middleware/validateToken"
 
 // Skapa servern
-const app = express();
+const app = express()
 
-// Använd servern via request och response
-app.use("/", (req, res) => {
-  console.log("Root route hit");
+//middleware
+app.use(cors())
+app.use(express.json())
 
-  res.send("Hello World");
-});
+app.post("/register", authController.register)
+app.post("/login", authController.logIn)
+app.get('/profile', validateToken, authController.profile)
 
-// För att få allt att funka, lyssna på servern
-app.listen(3000, () => {
-  console.log("Server listening on port 3000");
+app.post('/posts', validateToken, postsController.create)
+app.get('/posts', postsController.getAllPosts)
+app.get('/posts/:id', postsController.getPosts)
+
+app.post('/posts/:postId/comments', validateToken, commentController.createComment)
+app.delete('/posts/:postId/comments/:commentId', validateToken, commentController.deleteComment)
+
+const mongoURL = process.env.DB_URL;
+
+if (!mongoURL) throw Error("Missing Url");
+
+mongoose.connect(mongoURL).then(() => {
+  // För att få allt att funka, lyssna på servern
+  const port = parseInt(process.env.PORT || "3000");
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
 });
