@@ -1,56 +1,187 @@
-// CRUD controller for Posts 
-
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import Post from "../models/Post";
 import { assertDefined } from "../utils/asserts";
+import { uploadFile } from "../utils/gridFs";
 
 export const create = async (req: Request, res: Response) => {
-    assertDefined(req.userId)
-    const {title, link, body } = req.body;
+  assertDefined(req.userId);
+  const { title, link, body } = req.body;
 
+  try {
     const post = new Post({
-        title,
-        link,
-        body,
-        author: req.userId
-    })
+      title,
+      link,
+      body,
+      author: req.userId,
+    });
 
-    try {
-      const savedPost = await post.save()
-      res.status(201).json(savedPost)
-    } catch(error) {
-        res.status(500).json({ message: 'Failed to create post'});
+    if (req.file) {
+      const fileId = await uploadFile(req.file.originalname, req.file.buffer, {
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+      });
+
+      post.image = {
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        id: fileId,
+      };
     }
-}
+
+    const savedPost = await post.save();
+    res.status(201).json(savedPost);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Failed to create post" });
+  }
+};
 
 export const getAllPosts = async (req: Request, res: Response) => {
-    const limit = 3
-    // const page = 2
-    // populate = sök efter author, plocka ut username. Lägg till detta när du hämtar posts
-    const posts = await Post
-     // hämtar ut alla posts utan kommentarer 
-    .find({}, '-comments')
-    .limit(limit)
-    // .skip(limit * (page - 1))
-    .populate('author', 'userName')
+  const limit = parseInt(req.query.limit?.toString() || "5");
+  const page = parseInt(req.query.page?.toString() || "1");
 
-    const totalCount = await Post.countDocuments();
+  if (isNaN(page) || isNaN(limit)) {
+    res.status(400).json({
+      message: "Malformed query object number: " + req.query.toString(),
+    });
+  }
 
+  const posts = await Post.aggregate([
+    {
+      $addFields: {
+        sortValue: {
+          $divide: [
+            {
+              $add: [
+                { $ifNull: ["$score", 0] },
+                1,
+              ],
+            },
+            {
+              $pow: [
+                {
+                  $add: [
+                    1,
+                    {
+                      $divide: [
+                        { $subtract: [new Date(), "$createdAt"] },
+                        1000 * 60 * 60,
+                      ],
+                    },
+                  ],
+                },
+                1.5,
+              ],
+            },
+          ],
+        },
+      },
+    },
+    {
+      $sort: { sortValue: -1 },
+    },
+    { $skip: limit * (page - 1) },
+    { $limit: limit }, 
+    {
+      $addFields: {
+        commentCount: {
+          $size: {
+            $ifNull: ["$comments", []], 
+          },
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "author",
+        foreignField: "_id",
+        pipeline: [
+          {
+            $project: {
+              userName: 1,
+            },
+          },
+        ],
+        as: "author",
+      },
+    },
+    { $unwind: "$author" },
+    {
+      $project: {
+        _id: 1,
+        title: 1,
+        link: 1,
+        body: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        score: 1,
+        commentCount: 1,
+        author: 1,
+      },
+    },
+  ]);
 
-    res.status(200).json({
-        posts,
-        totalPages: Math.ceil(limit/totalCount)
-    })
-}
+  const totalCount = await Post.countDocuments();
 
-export const getPosts = async (req: Request, res: Response) => {
-    const { id } = req.params;
+  res.status(200).json({
+    posts,
+    totalPages: Math.ceil(totalCount / limit),
+  });
+};
 
-    const post = await Post.findById(id).populate('author').populate("comments.author")
-   
-    if(!post) {
-        return res.status(404).json({message: 'No post fopund for id: ' + id})
+export const getPost = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const post = await Post.findById(id)
+    .populate("author")
+    .populate("comments.author");
+
+  if (!post) {
+    return res.status(404).json({ message: "No post found for id: " + id });
+  }
+
+  res.status(200).json(post);
+};
+
+export const updatePost = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { title, link, body } = req.body;
+
+  try {
+    const post = await Post.findByIdAndUpdate(
+      id,
+      { title, link, body },
+      { new: true }
+    );
+
+    if (!post) {
+      return res.status(404).json({ message: "No post found for id: " + id });
     }
 
-    res.status(200).json(post)
-}
+    res.status(200).json(post);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Failed to update post" });
+  }
+};
+
+export const deletePost = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const post = await Post.findByIdAndDelete(id);
+
+    if (!post) {
+      return res.status(404).json({ message: "No post found for id: " + id });
+    }
+
+    res.status(200).json({ message: "Post deleted successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Failed to delete post" });
+  }
+};
+
+

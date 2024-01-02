@@ -23,7 +23,6 @@ export const register = async (req: Request, res: Response) => {
 }
 
 export const logIn = async (req: Request, res: Response) => {
-    console.log(req.userId);
     try {
         // Ta in användarnamn och lösen
         const { username, password } = req.body;
@@ -49,7 +48,7 @@ export const logIn = async (req: Request, res: Response) => {
         // // Refresh token
         // const refreshToken = jwt.sign({ userId: user._id }, refreshTokenSecret, { expiresIn: '1d'});
 
-        res.status(200).json({token, username: user.userName})
+        res.status(200).json({token, username: user.userName, userId: user._id})
     } catch (error) {
         console.log("Error in login", error);
         res.status(500).json({
@@ -100,6 +99,7 @@ export const profile = async (req: Request, res: Response) => {
     }
 
     res.status(200).json({
+        id: user._id,
         userName: user.userName
     })
 }

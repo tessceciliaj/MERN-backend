@@ -1,29 +1,6 @@
 import "dotenv/config";
-import express from "express"
 import mongoose from "mongoose"
-import cors from 'cors'
-import * as authController from "./controllers/auth"
-import * as postsController from './controllers/posts'
-import * as commentController from './controllers/comments'
-import validateToken from "./middleware/validateToken"
-
-// Skapa servern
-const app = express()
-
-//middleware
-app.use(cors())
-app.use(express.json())
-
-app.post("/register", authController.register)
-app.post("/login", authController.logIn)
-app.get('/profile', validateToken, authController.profile)
-
-app.post('/posts', validateToken, postsController.create)
-app.get('/posts', postsController.getAllPosts)
-app.get('/posts/:id', postsController.getPosts)
-
-app.post('/posts/:postId/comments', validateToken, commentController.createComment)
-app.delete('/posts/:postId/comments/:commentId', validateToken, commentController.deleteComment)
+import app from "./app";
 
 const mongoURL = process.env.DB_URL;
 
