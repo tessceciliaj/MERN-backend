@@ -24,6 +24,7 @@ export const create = async (req: Request, res: Response) => {
 }
 
 export const getAllPosts = async (req: Request, res: Response) => {
+  try {
   const limit = parseInt(req.query.limit?.toString() || "5");
   const page = parseInt(req.query.page?.toString() || "1");
 
@@ -115,6 +116,10 @@ export const getAllPosts = async (req: Request, res: Response) => {
     posts,
     totalPages: Math.ceil(totalCount / limit),
   });
+} catch (error) {
+  console.error('Error fetching posts:', error);
+  res.status(500).json({ message: 'Failed to fetch posts' });
+}
 };
 
 export const getPost = async (req: Request, res: Response) => {
