@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import multer from 'multer';
 import * as authController from './controllers/auth';
 import * as postsController from './controllers/posts';
 import * as commentsController from './controllers/comments';
@@ -12,9 +11,6 @@ const app = express()
 
 app.use(cors());
 app.use(express.json());
-
-
-const upload = multer();
 
 
 app.post('/register', authController.register);
