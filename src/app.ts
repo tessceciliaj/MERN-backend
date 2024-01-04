@@ -23,7 +23,7 @@ app.post('/token/refresh', authController.refreshJWT);
 app.get('/profile', validateToken, authController.profile);
 
 app.post('/posts', validateToken, postsController.create);
-app.post('/posts', validateToken, upload.single('image'), postsController.create);
+app.post('/posts', validateToken, postsController.create);
 app.get('/posts', postsController.getAllPosts);
 app.get('/posts/:id', postsController.getPost);
 app.put('/posts/:id', validateToken, postsController.updatePost);

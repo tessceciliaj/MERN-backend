@@ -5,37 +5,23 @@ import { assertDefined } from "../utils/asserts";
 import { uploadFile } from "../utils/gridFs";
 
 export const create = async (req: Request, res: Response) => {
-  assertDefined(req.userId);
-  const { title, link, body } = req.body;
+  assertDefined(req.userId)
+  const {title, link, body } = req.body;
 
-  try {
-    const post = new Post({
+  const post = new Post({
       title,
       link,
       body,
-      author: req.userId,
-    });
+      author: req.userId
+  })
 
-    if (req.file) {
-      const fileId = await uploadFile(req.file.originalname, req.file.buffer, {
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-      });
-
-      post.image = {
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        id: fileId,
-      };
-    }
-
-    const savedPost = await post.save();
-    res.status(201).json(savedPost);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Failed to create post" });
+  try {
+    const savedPost = await post.save()
+    res.status(201).json(savedPost)
+  } catch(error) {
+      res.status(500).json({ message: 'Failed to create post'});
   }
-};
+}
 
 export const getAllPosts = async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit?.toString() || "5");
@@ -148,24 +134,31 @@ export const getPost = async (req: Request, res: Response) => {
 export const updatePost = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { title, link, body } = req.body;
+  assertDefined(req.userId);
 
   try {
-    const post = await Post.findByIdAndUpdate(
-      id,
-      { title, link, body },
-      { new: true }
-    );
+    const post = await Post.findById(id);
 
     if (!post) {
       return res.status(404).json({ message: "No post found for id: " + id });
     }
 
-    res.status(200).json(post);
+    if (post.author.toString() !== req.userId) {
+      return res.status(403).json({ message: "Not authorized to update this post" });
+    }
+
+    post.title = title || post.title;
+    post.link = link || post.link;
+    post.body = body || post.body;
+
+    const updatedPost = await post.save();
+    res.status(200).json(updatedPost);
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Failed to update post" });
   }
 };
+
 
 export const deletePost = async (req: Request, res: Response) => {
   const { id } = req.params;
